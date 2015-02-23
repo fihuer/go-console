@@ -2,19 +2,13 @@ package main
 
 import (
 	"log"
-	"errors"
 	"os"
 	"flag"
-	"regexp"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"html/template"
-	"strings"
+	"github.com/fihuer/go-console/server"
 )
 
-var templates = template.Must(template.ParseFiles("view.html"))
-var validPath = regexp.MustCompile("^/console/([a-zA-Z0-9]+.html)$")
 var (
 	Trace *log.Logger
 	Info *log.Logger
@@ -22,58 +16,7 @@ var (
 	Error *log.Logger
 )
 
-type Page struct {
-	Title string
-	Body []byte
-}
 
-func (p *Page) save() error {
-	filename := p.Title
-	return ioutil.WriteFile(filename, p.Body, 0600)
-}
-
-func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
-	m := validPath.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		//http.NotFound(w, r)
-		return "", errors.New("Invalid Page Title")
-	}
-	return m[1], nil // The title is the second subexpression.
-}
-
-func loadPage(title string) (*Page, error) {
-	filename := title
-	body, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &Page{Title: title, Body: body}, nil
-}
-
-
-func viewHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
-	if err != nil {
-		Info.Println("Wrong page title")
-		http.Redirect(w, r, "/console/index.html", http.StatusFound)
-		return
-	}
-	p, err := loadPage(title)
-	if err != nil {
-		Info.Println("Can't load "+title+", redirecting to index.html")
-		http.Redirect(w, r, "/console/index.html", http.StatusFound)
-	} else {
-		Info.Println("Rendering index.html")
-		renderTemplate(w, "view", p)
-	}
-}
-
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl+".html", p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
 
 func Init(
 	traceHandle io.Writer,
@@ -98,35 +41,23 @@ func Init(
 		log.Ldate|log.Ltime|log.Lshortfile)
 }
 
-func redir(w http.ResponseWriter, r *http.Request) {
-	m := strings.Split(r.Host, ":")
-	h := m[0]
-	http.Redirect(w, r, "https://"+h+":8080"+r.RequestURI, http.StatusMovedPermanently)
-}
 
 func main() {
 	//Init Loggers
 	Init(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
-	
+
 	//Init flags
 	certPtr := flag.String("cert", "cert/cert.crt", "SSL Certificate")
 	keyPtr := flag.String("key", "cert/private_key", "SSL Private Key")
 	flag.Parse()
 
 	//Creates Pages
-	p1 := &Page{Title: "index.html", Body: []byte("This is the first page.")}
-	p1.save()
+	p1 := &server.Page{Title: "index.html", Body: []byte("This is the first page.")}
+	p1.Save()
 	Info.Println("Created index.html")
-        p2 := &Page{Title: "index2.html", Body: []byte("This is the second page.")}
-        p2.save()
+        p2 := &server.Page{Title: "index2.html", Body: []byte("This is the second page.")}
+        p2.Save()
 	Info.Println("Created index2.html")
 
-	//Launch http server
-	go func() {
-		log.Fatal(http.ListenAndServe(":8081", http.HandlerFunc(redir)))
-	}()
-	
-	//Create tls server
-	http.HandleFunc("/console/", viewHandler)
-	log.Fatal(http.ListenAndServeTLS(":8080", *certPtr, *keyPtr, nil))
+	server.Start(*certPtr, *keyPtr)
 }
