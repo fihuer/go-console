@@ -4,11 +4,13 @@ import (
 	"log"
 	"errors"
 	"os"
+	"flag"
 	"regexp"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"html/template"
+	"strings"
 )
 
 var templates = template.Must(template.ParseFiles("view.html"))
@@ -33,7 +35,7 @@ func (p *Page) save() error {
 func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 	m := validPath.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		http.NotFound(w, r)
+		//http.NotFound(w, r)
 		return "", errors.New("Invalid Page Title")
 	}
 	return m[1], nil // The title is the second subexpression.
@@ -53,6 +55,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	title, err := getTitle(w, r)
 	if err != nil {
 		Info.Println("Wrong page title")
+		http.Redirect(w, r, "/console/index.html", http.StatusFound)
 		return
 	}
 	p, err := loadPage(title)
@@ -95,14 +98,35 @@ func Init(
 		log.Ldate|log.Ltime|log.Lshortfile)
 }
 
+func redir(w http.ResponseWriter, r *http.Request) {
+	m := strings.Split(r.Host, ":")
+	h := m[0]
+	http.Redirect(w, r, "https://"+h+":8080"+r.RequestURI, http.StatusMovedPermanently)
+}
+
 func main() {
+	//Init Loggers
 	Init(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
+	
+	//Init flags
+	certPtr := flag.String("cert", "cert/cert.crt", "SSL Certificate")
+	keyPtr := flag.String("key", "cert/private_key", "SSL Private Key")
+	flag.Parse()
+
+	//Creates Pages
 	p1 := &Page{Title: "index.html", Body: []byte("This is the first page.")}
 	p1.save()
 	Info.Println("Created index.html")
         p2 := &Page{Title: "index2.html", Body: []byte("This is the second page.")}
         p2.save()
 	Info.Println("Created index2.html")
+
+	//Launch http server
+	go func() {
+		log.Fatal(http.ListenAndServe(":8081", http.HandlerFunc(redir)))
+	}()
+	
+	//Create tls server
 	http.HandleFunc("/console/", viewHandler)
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServeTLS(":8080", *certPtr, *keyPtr, nil))
 }
