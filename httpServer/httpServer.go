@@ -12,9 +12,10 @@ import (
 	"regexp"
 )
 
-var templates = template.Must(template.ParseFiles("httpServer/templates/view.html"))
-var validPath = regexp.MustCompile("^/console/([a-zA-Z0-9]+.html)$")
-
+var templates = template.Must(template.ParseFiles("httpServer/templates/console.html"))
+var validPath = regexp.MustCompile("^/console/([a-zA-Z0-9-_]+.html)$")
+var libPath = regexp.MustCompile("^/bower_components/[-_a-zA-Z0-9/]*([a-zA-Z0-9-_]+.(html|js|css))$")
+var elemPath = regexp.MustCompile("^/elements/[-_a-zA-Z0-9/]*([a-zA-Z0-9-_]+.(html|js|css))$")
 var (
 	Trace *log.Logger
 	Info *log.Logger
@@ -43,6 +44,8 @@ func Start(cert, key string) error {
 
 	//Handlers
 	http.HandleFunc("/console/",viewHandler)
+	http.HandleFunc("/bower_components/", libHandler)
+	http.HandleFunc("/elements/", elemHandler)
 
 	err := http.ListenAndServeTLS(":8080", cert, key, nil)
 	return err
@@ -81,17 +84,38 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	title, err := getTitle(w, r)
 	if err != nil {
 		Info.Println("Wrong page title")
-		http.Redirect(w, r, "/console/index.html", http.StatusFound)
+		http.Redirect(w, r, "/console/console.html", http.StatusFound)
 		return
 	}
 	p, err := loadPage(title)
 	if err != nil {
-		Info.Println("Can't load "+title+", redirecting to index.html")
-		http.Redirect(w, r, "/console/index.html", http.StatusFound)
+		Info.Println("Can't load "+title+", redirecting to console.html")
+		http.Redirect(w, r, "/console/console.html", http.StatusFound)
 	} else {
-		Info.Println("Rendering index.html")
-		renderTemplate(w, "view", p)
+		Info.Println("Rendering console.html")
+		renderTemplate(w, "console", p)
 	}
+}
+
+func libHandler(w http.ResponseWriter, r *http.Request) {
+	m := libPath.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		http.NotFound(w, r)
+		Warning.Println("Invalid Page Title : "+r.URL.Path)
+		return
+	}
+	Info.Println("Loading Lib : "+r.URL.Path[1:])
+	http.ServeFile(w, r, r.URL.Path[1:])
+}
+func elemHandler(w http.ResponseWriter, r *http.Request) {
+	m := elemPath.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		http.NotFound(w, r)
+		Warning.Println("Invalid Page Title : "+r.URL.Path)
+		return
+	}
+	Info.Println("Loading Lib : "+r.URL.Path[1:])
+	http.ServeFile(w, r, "httpServer/"+r.URL.Path[1:])
 }
 
 func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -113,6 +137,7 @@ func loadPage(title string) (*Page, error) {
 }
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
+	w.Header().Set("Content-type", "text/html")
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

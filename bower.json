@@ -1,0 +1,23 @@
+{
+  "name": "go-console",
+  "version": "0.0.0",
+  "homepage": "https://github.com/fihuer/go-console",
+  "authors": [
+    "Fihue Romain <romain.fihue@student.ecp.fr>"
+  ],
+  "license": "GNU",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#~0.5.5",
+    "core-scaffold": "Polymer/core-scaffold#~0.5.5",
+    "core-menu": "Polymer/core-menu#~0.5.5",
+    "paper-icon-button": "Polymer/paper-icon-button#~0.5.5"
+  }
+}
