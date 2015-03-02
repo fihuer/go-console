@@ -12,7 +12,7 @@ import (
 	"regexp"
 )
 
-var templates = template.Must(template.ParseFiles("server/templates/view.html"))
+var templates = template.Must(template.ParseFiles("httpServer/templates/view.html"))
 var validPath = regexp.MustCompile("^/console/([a-zA-Z0-9]+.html)$")
 
 var (

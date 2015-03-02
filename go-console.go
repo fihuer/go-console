@@ -6,7 +6,7 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
-	"github.com/fihuer/go-console/server"
+	"github.com/fihuer/go-console/httpServer"
 )
 
 var (
@@ -52,12 +52,12 @@ func main() {
 	flag.Parse()
 
 	//Creates Pages
-	p1 := &server.Page{Title: "index.html", Body: []byte("This is the first page.")}
+	p1 := &httpServer.Page{Title: "index.html", Body: []byte("This is the first page.")}
 	p1.Save()
 	Info.Println("Created index.html")
-        p2 := &server.Page{Title: "index2.html", Body: []byte("This is the second page.")}
+        p2 := &httpServer.Page{Title: "index2.html", Body: []byte("This is the second page.")}
         p2.Save()
 	Info.Println("Created index2.html")
 
-	server.Start(*certPtr, *keyPtr)
+	httpServer.Start(*certPtr, *keyPtr)
 }
